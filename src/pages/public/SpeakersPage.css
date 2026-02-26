@@ -1,0 +1,86 @@
+.speakers-page-header {
+    position: relative;
+    padding: var(--space-16) 0 var(--space-12);
+    background: linear-gradient(to bottom, var(--color-bg-soft), var(--color-bg));
+    border-bottom: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.speakers-grid-full {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+    padding-bottom: var(--space-16);
+}
+
+.speaker-dir-card {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.speaker-dir-card__avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-gold), var(--color-blue));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: #0a0b0f;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.speaker-dir-card__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.speaker-dir-card__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.speaker-dir-card__name {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: var(--space-1);
+}
+
+.speaker-dir-card__role {
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-1);
+}
+
+.speaker-dir-card__bio {
+    margin-top: var(--space-2);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.speaker-dir-card__footer {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+@media (max-width: 1024px) {
+    .speakers-grid-full {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .speakers-grid-full {
+        grid-template-columns: 1fr;
+    }
+}
