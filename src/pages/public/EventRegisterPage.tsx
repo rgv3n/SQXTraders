@@ -6,7 +6,6 @@ import {
     User, Mail, Phone, Building2, Briefcase, Lock,
     CreditCard, Ticket, AlertCircle,
 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n/TranslationProvider';
 import { supabase } from '@/lib/supabase';
@@ -73,7 +72,6 @@ function formatCurrency(amount: number, currency: string) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(amount);
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
 
 // ─── Component ───────────────────────────────────────────────
 export default function EventRegisterPage() {
