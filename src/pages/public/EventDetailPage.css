@@ -89,6 +89,16 @@
     align-items: start;
 }
 
+.event-detail__description {
+    padding: var(--space-6) 0;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-6);
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    white-space: pre-line;
+}
+
 .event-detail__tabs {
     display: flex;
     background: var(--color-surface);

@@ -101,7 +101,7 @@ export default function EventDetailPage() {
             {/* Hero / Banner */}
             <div
                 className="event-detail__hero"
-                style={event.theme?.hero_image ? { backgroundImage: `url(${event.theme.hero_image})` } : undefined}
+                style={(event.og_image || event.theme?.hero_image) ? { backgroundImage: `url(${event.og_image || event.theme?.hero_image})` } : undefined}
             >
                 <div className="event-detail__hero-overlay" />
                 <div className="container event-detail__hero-content">
@@ -155,6 +155,13 @@ export default function EventDetailPage() {
             <div className="container event-detail__body">
                 {/* Left Column: Content */}
                 <div className="event-detail__main">
+                    {/* Description */}
+                    {event.description && (
+                        <div className="event-detail__description">
+                            <p>{event.description}</p>
+                        </div>
+                    )}
+
                     {/* Tabs */}
                     <div className="event-detail__tabs">
                         {(['agenda', 'speakers', 'sponsors'] as const).map((tab) => (
