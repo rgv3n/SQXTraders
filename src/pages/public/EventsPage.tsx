@@ -97,7 +97,7 @@ export default function EventsPage() {
                         {filtered.map((event) => (
                             <Link
                                 key={event.id}
-                                to={`/events/${event.slug}`}
+                                to={`/events/${event.slug || event.id}`}
                                 className="event-list-card card card--hover card--glow animate-fade-in-up"
                             >
                                 {event.theme?.hero_image && (

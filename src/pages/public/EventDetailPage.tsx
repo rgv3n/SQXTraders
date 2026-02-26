@@ -22,6 +22,9 @@ export default function EventDetailPage() {
     const dateLocale = language === 'es' ? es : enUS;
     const [activeTab, setActiveTab] = useState<'agenda' | 'speakers' | 'sponsors'>('agenda');
 
+    // UUID pattern — used as id fallback when event was created without a slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug ?? '');
+
     // Fetch event
     const { data: event, isLoading: loadingEvent } = useQuery<Event | null>({
         queryKey: ['event', slug],
@@ -29,7 +32,7 @@ export default function EventDetailPage() {
             const { data } = await supabase
                 .from('events')
                 .select('*')
-                .eq('slug', slug!)
+                .eq(isUUID ? 'id' : 'slug', slug!)
                 .single();
             return (data ?? null) as Event | null;
         },

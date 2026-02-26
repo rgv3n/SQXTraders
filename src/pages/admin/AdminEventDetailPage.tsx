@@ -75,6 +75,10 @@ interface EventEditForm {
     og_image: string;
 }
 
+function slugify(s: string) {
+    return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
 const TIMEZONES = ['Europe/Madrid', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'America/Mexico_City', 'Asia/Tokyo'];
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'MXN', 'ARS', 'COP'];
@@ -426,7 +430,7 @@ export default function AdminEventDetailPage() {
                 .from('events')
                 .update({
                     title:        f.title,
-                    slug:         f.slug,
+                    slug:         f.slug || slugify(f.title),
                     description:  f.description,
                     start_date:   f.start_date,
                     end_date:     f.end_date || f.start_date,
@@ -639,8 +643,15 @@ export default function AdminEventDetailPage() {
                         </div>
                         {/* Slug */}
                         <div>
-                            <label className="form-label">URL Slug</label>
-                            <input className="form-input" style={{ width: '100%' }} value={eventForm.slug} onChange={e => setEF('slug', e.target.value)} />
+                            <label className="form-label">
+                                URL Slug
+                                {!eventForm.slug && (
+                                    <span style={{ color: 'var(--color-warning)', marginLeft: 6, fontWeight: 400 }}>
+                                        (auto-generated from title on save)
+                                    </span>
+                                )}
+                            </label>
+                            <input className="form-input" style={{ width: '100%' }} placeholder={slugify(eventForm.title) || 'e.g. sqx-summit-2025'} value={eventForm.slug} onChange={e => setEF('slug', e.target.value)} />
                         </div>
                         {/* Hero image */}
                         <div>
