@@ -72,12 +72,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (createError) {
-            // If email is already taken, find the existing user via listUsers and update them
-            const isConflict = /already|duplicate|registered|exists/i.test(createError.message);
-            if (!isConflict) {
+            // "Database error creating new user" = GoTrue trigger crashed (handle_new_user failed).
+            // "already/duplicate/registered/exists" = email already taken.
+            // In both cases try to find the existing user and promote them instead.
+            const isRetryable = /already|duplicate|registered|exists|database error/i.test(createError.message);
+            if (!isRetryable) {
                 console.error('[create-user] Auth user creation failed:', createError.message);
                 return res.status(400).json({ error: createError.message });
             }
+
+            console.error('[create-user] createUser failed, trying to locate existing user:', createError.message);
 
             // Find existing auth user by email
             const { data: listData, error: listError } = await adminSupabase.auth.admin.listUsers({
@@ -86,11 +90,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             if (listError) {
                 console.error('[create-user] listUsers error:', listError.message);
-                return res.status(400).json({ error: 'Email already registered and could not locate the user.' });
+                return res.status(500).json({ error: `User creation failed: ${createError.message}` });
             }
             const existing = listData.users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
             if (!existing) {
-                return res.status(400).json({ error: 'Email already registered but user not found. Contact support.' });
+                // No existing user — the trigger error was the real issue. Run migration 015 in Supabase.
+                console.error('[create-user] Trigger error and no existing user found. Needs DB fix (migration 015).');
+                return res.status(500).json({ error: `Database trigger error. Please run migration 015 in Supabase and retry.` });
             }
 
             targetUserId = existing.id;
