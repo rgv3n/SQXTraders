@@ -163,7 +163,12 @@ export default function AdminUsersPage() {
                     permissions: form.role === 'moderator' ? form.permissions : {},
                 }),
             });
-            const json = await res.json();
+            let json: { error?: string; user?: unknown };
+            try {
+                json = await res.json();
+            } catch {
+                throw new Error(`Server error ${res.status}: ${res.statusText || 'unexpected response'}`);
+            }
             if (!res.ok) throw new Error(json.error ?? 'Failed to create user');
             return json;
         },
