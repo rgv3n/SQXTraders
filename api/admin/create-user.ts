@@ -60,22 +60,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Password must be at least 8 characters' });
         }
 
-        // ── Create auth user (email confirmed) ──
+        // ── Create or locate auth user ──
+        let targetUserId: string;
+        let targetCreatedAt: string;
+        let createdNew = false;
+
         const { data: newUserData, error: createError } = await adminSupabase.auth.admin.createUser({
             email,
             password,
             email_confirm: true,
         });
-        if (createError || !newUserData?.user) {
-            console.error('[create-user] Auth user creation failed:', createError?.message);
-            return res.status(400).json({ error: createError?.message ?? 'Failed to create auth user' });
+
+        if (createError) {
+            // If email is already taken, find the existing user via listUsers and update them
+            const isConflict = /already|duplicate|registered|exists/i.test(createError.message);
+            if (!isConflict) {
+                console.error('[create-user] Auth user creation failed:', createError.message);
+                return res.status(400).json({ error: createError.message });
+            }
+
+            // Find existing auth user by email
+            const { data: listData, error: listError } = await adminSupabase.auth.admin.listUsers({
+                page: 1,
+                perPage: 1000,
+            });
+            if (listError) {
+                console.error('[create-user] listUsers error:', listError.message);
+                return res.status(400).json({ error: 'Email already registered and could not locate the user.' });
+            }
+            const existing = listData.users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+            if (!existing) {
+                return res.status(400).json({ error: 'Email already registered but user not found. Contact support.' });
+            }
+
+            targetUserId = existing.id;
+            targetCreatedAt = existing.created_at;
+            // Update password for the existing account
+            await adminSupabase.auth.admin.updateUserById(targetUserId, { password });
+        } else {
+            if (!newUserData?.user) {
+                return res.status(400).json({ error: 'Failed to create auth user' });
+            }
+            targetUserId = newUserData.user.id;
+            targetCreatedAt = newUserData.user.created_at;
+            createdNew = true;
         }
-        const newUser = newUserData.user;
 
         // ── Upsert profile ──
         const { error: profileError } = await adminSupabase.from('profiles').upsert({
-            user_id: newUser.id,
-            email,
+            user_id: targetUserId,
+            email: email.trim().toLowerCase(),
             display_name,
             role,
             permissions: role === 'moderator' ? permissions : {},
@@ -87,19 +121,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (profileError) {
             console.error('[create-user] Profile upsert failed:', profileError.message);
-            // Rollback: delete the auth user we just created
-            await adminSupabase.auth.admin.deleteUser(newUser.id);
+            // Only rollback new accounts
+            if (createdNew) await adminSupabase.auth.admin.deleteUser(targetUserId);
             return res.status(500).json({ error: `Profile creation failed: ${profileError.message}` });
         }
 
         return res.status(201).json({
             user: {
-                id: newUser.id,
+                id: targetUserId,
                 email,
                 display_name,
                 role,
                 permissions: role === 'moderator' ? permissions : {},
-                created_at: newUser.created_at,
+                created_at: targetCreatedAt,
             },
         });
     } catch (err: unknown) {
