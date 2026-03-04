@@ -55,11 +55,12 @@ export function RequireRole({ children, roles, redirectTo = '/' }: RequireRolePr
 }
 
 // ============================================================
-// RequireAdmin — shortcut for admin/superadmin
+// RequireAdmin — admin, superadmin, or moderator can enter
+// the admin layout. Individual pages control finer permissions.
 // ============================================================
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
     return (
-        <RequireRole roles={['admin', 'superadmin']} redirectTo="/">
+        <RequireRole roles={['admin', 'superadmin', 'moderator']} redirectTo="/">
             {children}
         </RequireRole>
     );

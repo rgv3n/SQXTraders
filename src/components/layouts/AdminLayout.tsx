@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Calendar, Users, Star, Award,
     Globe, Download, BarChart2, Settings, LogOut, Menu, X,
-    QrCode, ChevronDown, ChevronRight, Tag
+    QrCode, ChevronDown, ChevronRight, Tag, UserCog,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n/TranslationProvider';
@@ -18,36 +18,46 @@ interface NavItem {
 }
 
 export default function AdminLayout() {
-    const { profile, role, signOut } = useAuth();
+    const { profile, role, canAccess, signOut } = useAuth();
     const { t } = useTranslation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [expandedGroup, setExpandedGroup] = useState<string | null>('events');
 
-    const navItems: NavItem[] = [
+    const isModerator = role === 'moderator';
+
+    // Build nav items, filtering based on role/permissions
+    const allNavItems: (NavItem & { show: boolean })[] = [
         {
             label: t('admin.nav.dashboard', 'Dashboard'),
             to: '/admin',
             icon: <LayoutDashboard size={18} />,
+            show: true,
         },
         {
             label: t('admin.nav.events', 'Events'),
             to: '/admin/events',
             icon: <Calendar size={18} />,
-            children: [
-                { label: t('admin.nav.all_events', 'All Events'), to: '/admin/events' },
-                { label: t('admin.nav.create_event', 'Create Event'), to: '/admin/events/create' },
-            ],
+            show: !isModerator || canAccess('events'),
+            children: isModerator
+                // Moderators: read-only, no "Create Event"
+                ? [{ label: t('admin.nav.all_events', 'All Events'), to: '/admin/events' }]
+                : [
+                    { label: t('admin.nav.all_events', 'All Events'), to: '/admin/events' },
+                    { label: t('admin.nav.create_event', 'Create Event'), to: '/admin/events/create' },
+                ],
         },
         {
             label: t('admin.nav.speakers', 'Speakers'),
             to: '/admin/speakers',
             icon: <Star size={18} />,
+            show: !isModerator || canAccess('speakers'),
         },
         {
             label: t('admin.nav.sponsors', 'Sponsors'),
             to: '/admin/sponsors',
             icon: <Award size={18} />,
+            show: !isModerator || canAccess('sponsors'),
             children: [
                 { label: t('admin.nav.all_sponsors', 'All Sponsors'), to: '/admin/sponsors' },
                 { label: t('admin.nav.sponsor_leads', 'Leads'), to: '/admin/sponsors/leads' },
@@ -57,11 +67,13 @@ export default function AdminLayout() {
             label: t('admin.nav.attendees', 'Attendees'),
             to: '/admin/attendees',
             icon: <Users size={18} />,
+            show: !isModerator || canAccess('attendees'),
         },
         {
             label: t('admin.nav.checkin', 'Check-in'),
             to: '/admin/check-in',
             icon: <QrCode size={18} />,
+            show: !isModerator || canAccess('check_in'),
             children: [
                 { label: t('admin.nav.checkin_list', 'Attendee List'), to: '/admin/check-in' },
                 { label: t('admin.nav.checkin_scan', 'Scan QR'), to: '/admin/check-in/scan' },
@@ -71,28 +83,41 @@ export default function AdminLayout() {
             label: t('admin.nav.vouchers', 'Vouchers'),
             to: '/admin/vouchers',
             icon: <Tag size={18} />,
+            show: !isModerator || canAccess('vouchers'),
         },
         {
             label: t('admin.nav.translations', 'Translations'),
             to: '/admin/translations',
             icon: <Globe size={18} />,
+            show: !isModerator || canAccess('translations'),
         },
         {
             label: t('admin.nav.import_export', 'Import / Export'),
             to: '/admin/import-export',
             icon: <Download size={18} />,
+            show: !isModerator || canAccess('import_export'),
         },
         {
             label: t('admin.nav.analytics', 'Analytics'),
             to: '/admin/analytics',
             icon: <BarChart2 size={18} />,
+            show: !isModerator || canAccess('analytics'),
         },
         {
             label: t('admin.nav.settings', 'Settings'),
             to: '/admin/settings',
             icon: <Settings size={18} />,
+            show: !isModerator,
+        },
+        {
+            label: t('admin.nav.users', 'Users'),
+            to: '/admin/users',
+            icon: <UserCog size={18} />,
+            show: !isModerator,   // admin + superadmin only
         },
     ];
+
+    const navItems = allNavItems.filter(item => item.show);
 
     const handleSignOut = async () => {
         await signOut();

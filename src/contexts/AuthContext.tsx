@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import type { Profile, UserRole } from '@/types/database';
+import type { Profile, UserRole, ModeratorPermissions } from '@/types/database';
 
 // ============================================================
 // Types
@@ -25,10 +25,12 @@ interface AuthContextValue extends AuthState {
     isAuthenticated: boolean;
     isSuperAdmin: boolean;
     isAdmin: boolean;
+    isModerator: boolean;
     isSpeaker: boolean;
     isSponsor: boolean;
     isVipVisitor: boolean;
     hasRole: (roles: UserRole[]) => boolean;
+    canAccess: (module: string) => boolean;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signUp: (email: string, password: string, displayName: string, consent: boolean) => Promise<{ error: Error | null }>;
     signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
@@ -159,6 +161,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const hasRole = useCallback((roles: UserRole[]) => roles.includes(role as UserRole), [role]);
 
+    // canAccess: superadmin/admin always yes; moderator checks permissions JSONB
+    const canAccess = useCallback((module: string): boolean => {
+        if (role === 'superadmin' || role === 'admin') return true;
+        if (role === 'moderator') {
+            const perms = state.profile?.permissions as ModeratorPermissions | null;
+            return !!(perms?.[module as keyof ModeratorPermissions]);
+        }
+        return false;
+    }, [role, state.profile]);
+
     return (
         <AuthContext.Provider
             value={{
@@ -167,10 +179,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isAuthenticated: !!state.user,
                 isSuperAdmin: role === 'superadmin',
                 isAdmin: role === 'admin' || role === 'superadmin',
+                isModerator: role === 'moderator',
                 isSpeaker: role === 'speaker',
                 isSponsor: role === 'sponsor',
                 isVipVisitor: role === 'vip_visitor',
                 hasRole,
+                canAccess,
                 signIn,
                 signUp,
                 signInWithMagicLink,

@@ -1,7 +1,19 @@
 // ============================================================
 // ENUMS
 // ============================================================
-export type UserRole = 'superadmin' | 'admin' | 'sponsor' | 'speaker' | 'vip_visitor' | 'visitor';
+export type UserRole = 'superadmin' | 'admin' | 'moderator' | 'sponsor' | 'speaker' | 'vip_visitor' | 'visitor';
+
+export interface ModeratorPermissions {
+    check_in?: boolean;
+    attendees?: boolean;
+    events?: boolean;
+    speakers?: boolean;
+    sponsors?: boolean;
+    vouchers?: boolean;
+    analytics?: boolean;
+    translations?: boolean;
+    import_export?: boolean;
+}
 export type TicketVisibility = 'HIDDEN' | 'INVITE_ONLY' | 'LOGGED_IN_ONLY' | 'PUBLIC';
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'past';
 export type OrderStatus = 'pending' | 'paid' | 'refunded' | 'cancelled';
@@ -36,6 +48,7 @@ export interface Profile {
     user_id: string;
     role: UserRole;
     display_name: string;
+    email?: string;
     photo?: string;
     language_pref: string;
     permissions: Record<string, unknown>;

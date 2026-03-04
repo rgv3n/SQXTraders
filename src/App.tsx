@@ -52,6 +52,7 @@ import AdminCheckInScanPage from '@/pages/admin/AdminCheckInScanPage';
 // Import/Export still a stub — coming next sprint
 import AdminEventDetailPage from '@/pages/admin/AdminEventDetailPage';
 import AdminVouchersPage from '@/pages/admin/AdminVouchersPage';
+import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 
 // Portals / user pages
 import MyTicketsPage from '@/pages/portal/MyTicketsPage';
@@ -146,6 +147,7 @@ export default function App() {
                 <Route path="check-in" element={<AdminCheckInPage />} />
                 <Route path="check-in/scan" element={<AdminCheckInScanPage />} />
                 <Route path="vouchers" element={<AdminVouchersPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
                 <Route path="translations" element={<AdminTranslationsPage />} />
                 <Route path="import-export" element={<AdminImportExportPage />} />
                 <Route path="analytics" element={<AdminAnalyticsPage />} />
