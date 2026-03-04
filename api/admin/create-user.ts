@@ -121,7 +121,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             permissions: role === 'moderator' ? permissions : {},
             language_pref: 'es',
             gdpr_consent: false,
-            unsubscribe_email: false,
             updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
 
