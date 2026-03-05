@@ -603,6 +603,9 @@ export default function AdminEventDetailPage() {
     // ── Speakers (via event_speakers join table) ──────────────────
     const [speakerPickerOpen, setSpeakerPickerOpen] = useState(false);
     const [pickerSelections, setPickerSelections] = useState<Map<string, number>>(new Map());
+    const [quickAddOpen, setQuickAddOpen] = useState(false);
+    const [quickAddForm, setQuickAddForm] = useState({ name: '', role: '', company: '', photo: '' });
+    const setQA = (k: keyof typeof quickAddForm, v: string) => setQuickAddForm(f => ({ ...f, [k]: v }));
 
     const { data: eventSpeakers = [] } = useQuery({
         queryKey: ['event-speakers', id],
@@ -651,6 +654,37 @@ export default function AdminEventDetailPage() {
             qc.invalidateQueries({ queryKey: ['event-speakers', id] });
             setSpeakerPickerOpen(false);
             toast.success('Speakers updated ✓');
+        },
+        onError: (err: any) => toast.error(err.message),
+    });
+
+    const quickAddSpeakerMutation = useMutation({
+        mutationFn: async () => {
+            const name = quickAddForm.name.trim();
+            const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 7)}`;
+            const { data, error } = await supabase
+                .from('speakers')
+                .insert({
+                    name,
+                    slug,
+                    role: quickAddForm.role.trim() || null,
+                    company: quickAddForm.company.trim() || null,
+                    photo: quickAddForm.photo.trim() || null,
+                })
+                .select('id')
+                .single();
+            if (error) throw error;
+            return data.id as string;
+        },
+        onSuccess: (newId) => {
+            // Auto-select the new speaker in the picker
+            const m = new Map(pickerSelections);
+            m.set(newId, m.size);
+            setPickerSelections(m);
+            qc.invalidateQueries({ queryKey: ['all-speakers'] });
+            setQuickAddForm({ name: '', role: '', company: '', photo: '' });
+            setQuickAddOpen(false);
+            toast.success('Speaker created and selected ✓');
         },
         onError: (err: any) => toast.error(err.message),
     });
@@ -1093,14 +1127,9 @@ export default function AdminEventDetailPage() {
                             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', fontWeight: 400 }}>({eventSpeakers.length})</span>
                         )}
                     </h2>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                        <Link to="/admin/speakers" className="btn btn--ghost btn--sm">
-                            <Plus size={13} /> New speaker
-                        </Link>
-                        <button className="btn btn--primary btn--sm" onClick={openPicker}>
-                            <Pencil size={13} /> Manage
-                        </button>
-                    </div>
+                    <button className="btn btn--primary btn--sm" onClick={openPicker}>
+                        <Pencil size={13} /> Manage
+                    </button>
                 </div>
 
                 {/* Speaker picker */}
@@ -1170,8 +1199,47 @@ export default function AdminEventDetailPage() {
                                 })}
                             </div>
                         )}
+                        {/* Quick-add new speaker inline */}
+                        {quickAddOpen ? (
+                            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+                                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--color-text)', marginBottom: 'var(--space-3)' }}>New speaker</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label className="form-label">Name *</label>
+                                        <input className="form-input" style={{ width: '100%' }} autoFocus value={quickAddForm.name} onChange={e => setQA('name', e.target.value)} placeholder="Full name" />
+                                    </div>
+                                    <div>
+                                        <label className="form-label">Role</label>
+                                        <input className="form-input" style={{ width: '100%' }} value={quickAddForm.role} onChange={e => setQA('role', e.target.value)} placeholder="e.g. Algo Trader" />
+                                    </div>
+                                    <div>
+                                        <label className="form-label">Company</label>
+                                        <input className="form-input" style={{ width: '100%' }} value={quickAddForm.company} onChange={e => setQA('company', e.target.value)} />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label className="form-label">Photo URL</label>
+                                        <input className="form-input" style={{ width: '100%' }} value={quickAddForm.photo} onChange={e => setQA('photo', e.target.value)} placeholder="https://..." />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn--ghost btn--sm" onClick={() => setQuickAddOpen(false)}><X size={13} /> Cancel</button>
+                                    <button
+                                        className="btn btn--primary btn--sm"
+                                        onClick={() => quickAddSpeakerMutation.mutate()}
+                                        disabled={quickAddSpeakerMutation.isPending || !quickAddForm.name.trim()}
+                                    >
+                                        <Save size={13} /> {quickAddSpeakerMutation.isPending ? 'Creating…' : 'Create & select'}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button className="btn btn--ghost btn--sm" style={{ marginBottom: 'var(--space-4)' }} onClick={() => setQuickAddOpen(true)}>
+                                <Plus size={13} /> New speaker
+                            </button>
+                        )}
+
                         <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-                            <button className="btn btn--ghost" onClick={() => setSpeakerPickerOpen(false)}>
+                            <button className="btn btn--ghost" onClick={() => { setSpeakerPickerOpen(false); setQuickAddOpen(false); }}>
                                 <X size={14} /> Cancel
                             </button>
                             <button
