@@ -12,6 +12,7 @@ import type { Event, Speaker, Sponsor, TicketType } from '@/types/database';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
 import CountdownTimer from '@/components/public/CountdownTimer';
+import SEO from '@/components/SEO';
 import './EventDetailPage.css';
 
 export default function EventDetailPage() {
@@ -96,11 +97,52 @@ export default function EventDetailPage() {
 
     const startDate = new Date(event.start_date);
     const endDate = new Date(event.end_date);
+
+    const BASE_URL = import.meta.env.VITE_APP_URL ?? 'https://sqxtraders.vercel.app';
+    const eventSlug = event.slug || event.id;
+    const eventJsonLd = {
+        '@context': 'https://schema.org',
+        '@type': event.is_hybrid ? 'Event' : 'Event',
+        name: event.title,
+        description: event.description ?? undefined,
+        startDate: event.start_date,
+        endDate: event.end_date,
+        eventStatus: 'https://schema.org/EventScheduled',
+        eventAttendanceMode: event.is_hybrid
+            ? 'https://schema.org/MixedEventAttendanceMode'
+            : 'https://schema.org/OfflineEventAttendanceMode',
+        location: event.venue_name
+            ? {
+                '@type': 'Place',
+                name: event.venue_name,
+                address: {
+                    '@type': 'PostalAddress',
+                    addressLocality: event.city ?? undefined,
+                    addressCountry: event.country ?? undefined,
+                },
+            }
+            : undefined,
+        organizer: {
+            '@type': 'Organization',
+            name: 'SQX EventOS',
+            url: BASE_URL,
+        },
+        image: event.og_image ?? undefined,
+        url: `${BASE_URL}/events/${eventSlug}`,
+    };
     const isUpcoming = startDate > new Date();
     const anySalesOpen = ticketTypes.some(tt => tt.sales_open !== false);
 
     return (
         <div className="event-detail">
+            <SEO
+                title={event.title ?? undefined}
+                description={event.description ?? `Join ${event.title} — a premier trading event by SQX EventOS.`}
+                image={event.og_image ?? undefined}
+                url={`/events/${eventSlug}`}
+                type="article"
+                jsonLd={eventJsonLd}
+            />
             {/* Hero / Banner */}
             <div
                 className="event-detail__hero"

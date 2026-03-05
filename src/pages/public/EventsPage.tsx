@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Event } from '@/types/database';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
+import SEO from '@/components/SEO';
 import './EventsPage.css';
 
 type Tab = 'upcoming' | 'past';
@@ -39,6 +40,11 @@ export default function EventsPage() {
 
     return (
         <div className="events-page">
+            <SEO
+                title="Trading Events"
+                description="Browse all upcoming and past trading events, conferences and summits organised by SQX EventOS."
+                url="/events"
+            />
             {/* Page Header */}
             <div className="events-page__header">
                 <div className="hero-glow hero-glow--gold" style={{ top: '-100px', left: '30%' }} />

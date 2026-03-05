@@ -8,6 +8,7 @@ import type { Event, Sponsor, Testimonial } from '@/types/database';
 import { format } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
 import CountdownTimer from '@/components/public/CountdownTimer';
+import SEO from '@/components/SEO';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -71,6 +72,16 @@ export default function HomePage() {
 
     return (
         <div className="home">
+            <SEO
+                url="/"
+                jsonLd={{
+                    '@context': 'https://schema.org',
+                    '@type': 'EventSeries',
+                    name: 'SQX Traders Summit',
+                    description: 'The premier conference series for algorithmic traders.',
+                    organizer: { '@type': 'Organization', name: 'SQX EventOS' },
+                }}
+            />
             {/* ======================================================
           HERO SECTION
           ====================================================== */}

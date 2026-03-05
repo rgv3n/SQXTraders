@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Speaker } from '@/types/database';
 import { ExternalLink, Twitter, Linkedin } from 'lucide-react';
+import SEO from '@/components/SEO';
 import './SpeakersPage.css';
 
 export default function SpeakersPage() {
@@ -22,6 +23,11 @@ export default function SpeakersPage() {
 
     return (
         <div>
+            <SEO
+                title="Speakers"
+                description="Meet the world-class speakers and expert traders presenting at SQX EventOS events."
+                url="/speakers"
+            />
             <div className="speakers-page-header">
                 <div className="hero-glow hero-glow--blue" style={{ top: '-80px', left: '50%' }} />
                 <div className="container">
