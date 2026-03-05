@@ -623,9 +623,15 @@ export default function AdminEventDetailPage() {
 
     const saveSpeakerMutation = useMutation({
         mutationFn: async () => {
-            const payload = {
+            const name = speakerForm.name.trim();
+            // Generate a unique slug: slugify name + random suffix to avoid collisions
+            const baseSlug = slugify(name);
+            const slug = speakerPanel === 'new'
+                ? `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`
+                : undefined; // don't overwrite slug on update
+            const payload: Record<string, unknown> = {
                 event_id: id!,
-                name: speakerForm.name.trim(),
+                name,
                 role: speakerForm.role.trim() || null,
                 company: speakerForm.company.trim() || null,
                 bio: speakerForm.bio.trim() || null,
@@ -634,6 +640,7 @@ export default function AdminEventDetailPage() {
                 linkedin: speakerForm.linkedin.trim() || null,
                 order_index: Number(speakerForm.order_index) || 0,
             };
+            if (slug) payload.slug = slug;
             if (speakerPanel === 'new') {
                 const { error } = await supabase.from('speakers').insert(payload);
                 if (error) throw error;
@@ -689,15 +696,20 @@ export default function AdminEventDetailPage() {
 
     const saveSponsorMutation = useMutation({
         mutationFn: async () => {
-            const payload = {
+            const name = sponsorForm.name.trim();
+            const slug = sponsorPanel === 'new'
+                ? `${slugify(name)}-${Math.random().toString(36).slice(2, 7)}`
+                : undefined;
+            const payload: Record<string, unknown> = {
                 event_id: id!,
-                name: sponsorForm.name.trim(),
+                name,
                 tier: sponsorForm.tier,
                 website: sponsorForm.website.trim() || null,
                 logo: sponsorForm.logo.trim() || null,
                 description: sponsorForm.description.trim() || null,
                 contact_email: sponsorForm.contact_email.trim() || null,
             };
+            if (slug) payload.slug = slug;
             if (sponsorPanel === 'new') {
                 const { error } = await supabase.from('sponsors').insert(payload);
                 if (error) throw error;
