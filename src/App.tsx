@@ -26,6 +26,7 @@ import EventDetailPage from '@/pages/public/EventDetailPage';
 import EventRegisterPage from '@/pages/public/EventRegisterPage';
 import OrderSuccessPage from '@/pages/public/OrderSuccessPage';
 import SpeakersPage from '@/pages/public/SpeakersPage';
+import SpeakerProfilePage from '@/pages/public/SpeakerProfilePage';
 import SponsorsPage from '@/pages/public/SponsorsPage';
 import PastEventsPage from '@/pages/public/PastEventsPage';
 
@@ -88,6 +89,7 @@ export default function App() {
                 <Route path="order/success" element={<RequireAuth><OrderSuccessPage /></RequireAuth>} />
                 <Route path="order/cancel" element={<EventDetailPage />} />
                 <Route path="speakers" element={<SpeakersPage />} />
+                <Route path="speakers/:slug" element={<SpeakerProfilePage />} />
                 <Route path="sponsors" element={<SponsorsPage />} />
                 <Route path="past-events" element={<PastEventsPage />} />
                 <Route path="my-tickets" element={<RequireAuth><MyTicketsPage /></RequireAuth>} />

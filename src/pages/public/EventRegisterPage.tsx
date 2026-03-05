@@ -282,6 +282,11 @@ export default function EventRegisterPage() {
                 }),
             });
 
+            const contentType = resp.headers.get('content-type') ?? '';
+            if (!contentType.includes('application/json')) {
+                const text = await resp.text();
+                throw new Error(`Server error (${resp.status}): ${text.slice(0, 200)}`);
+            }
             const data = await resp.json();
             if (!resp.ok) throw new Error(data.error ?? 'Checkout failed');
             return data.url as string;

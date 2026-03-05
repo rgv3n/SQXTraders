@@ -40,9 +40,12 @@ export default function AdminSponsorsPage() {
     const saveMutation = useMutation({
         mutationFn: async () => {
             if (modal === 'create') {
-                await supabase.from('sponsors').insert({ ...form });
+                const slug = `${form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Math.random().toString(36).slice(2, 7)}`;
+                const { error } = await supabase.from('sponsors').insert({ ...form, slug });
+                if (error) throw error;
             } else if (modal && typeof modal === 'object') {
-                await supabase.from('sponsors').update({ ...form }).eq('id', modal.id);
+                const { error } = await supabase.from('sponsors').update({ ...form }).eq('id', modal.id);
+                if (error) throw error;
             }
         },
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-sponsors'] }); setModal(null); },

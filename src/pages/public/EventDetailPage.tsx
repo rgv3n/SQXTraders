@@ -54,17 +54,17 @@ export default function EventDetailPage() {
         },
     });
 
-    // Fetch sponsors
+    // Fetch sponsors via event_sponsors join table
     const { data: sponsors = [] } = useQuery<Sponsor[]>({
         queryKey: ['sponsors', event?.id],
         enabled: !!event?.id,
         queryFn: async () => {
             const { data } = await supabase
-                .from('sponsors')
-                .select('*')
+                .from('event_sponsors')
+                .select('*, sponsor:sponsors(*)')
                 .eq('event_id', event!.id)
-                .order('created_at', { ascending: true });
-            return (data ?? []) as Sponsor[];
+                .order('order_index', { ascending: true });
+            return ((data ?? []) as any[]).map((r: any) => r.sponsor as Sponsor);
         },
     });
 

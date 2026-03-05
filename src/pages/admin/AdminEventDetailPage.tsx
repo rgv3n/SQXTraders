@@ -114,18 +114,19 @@ interface SponsorRow {
     contact_email: string | null;
 }
 
-interface SponsorForm {
-    name: string;
+interface EventSponsorRow {
+    id: string;
+    event_id: string;
+    sponsor_id: string;
     tier: string;
-    website: string;
-    logo: string;
-    description: string;
-    contact_email: string;
+    order_index: number;
+    sponsor: SponsorRow;
 }
 
-const emptySponsor = (): SponsorForm => ({
-    name: '', tier: 'gold', website: '', logo: '', description: '', contact_email: '',
-});
+interface SponsorSelection {
+    tier: string;
+    order_index: number;
+}
 
 const SPONSOR_TIERS = ['platinum', 'gold', 'silver', 'bronze', 'media', 'community'];
 
@@ -689,73 +690,88 @@ export default function AdminEventDetailPage() {
         onError: (err: any) => toast.error(err.message),
     });
 
-    // ── Sponsors ──────────────────────────────────────────────────
-    const [sponsorPanel, setSponsorPanel] = useState<null | 'new' | string>(null);
-    const [sponsorForm, setSponsorForm] = useState<SponsorForm>(emptySponsor());
-    const setSP = (k: keyof SponsorForm, v: string) => setSponsorForm(f => ({ ...f, [k]: v }));
+    // ── Sponsors (via event_sponsors join table) ──────────────────
+    const [sponsorPickerOpen, setSponsorPickerOpen] = useState(false);
+    const [sponsorSelections, setSponsorSelections] = useState<Map<string, SponsorSelection>>(new Map());
+    const [sponsorQuickAddOpen, setSponsorQuickAddOpen] = useState(false);
+    const [sponsorQuickAddForm, setSponsorQuickAddForm] = useState({ name: '', website: '', logo: '', tier: 'gold' });
+    const setSQA = (k: keyof typeof sponsorQuickAddForm, v: string) => setSponsorQuickAddForm(f => ({ ...f, [k]: v }));
 
-    const { data: sponsors = [] } = useQuery({
+    const { data: eventSponsors = [] } = useQuery({
         queryKey: ['event-sponsors', id],
         enabled: !!id,
         queryFn: async () => {
-            const { data } = await supabase.from('sponsors').select('*').eq('event_id', id!).order('tier').order('name');
+            const { data } = await supabase
+                .from('event_sponsors')
+                .select('*, sponsor:sponsors(*)')
+                .eq('event_id', id!)
+                .order('order_index');
+            return (data ?? []) as EventSponsorRow[];
+        },
+    });
+
+    const { data: allSponsors = [] } = useQuery({
+        queryKey: ['all-sponsors'],
+        enabled: !!id,
+        queryFn: async () => {
+            const { data } = await supabase.from('sponsors').select('*').order('name');
             return (data ?? []) as SponsorRow[];
         },
     });
 
-    const saveSponsorMutation = useMutation({
+    const openSponsorPicker = () => {
+        const m = new Map<string, SponsorSelection>();
+        eventSponsors.forEach(es => m.set(es.sponsor_id, { tier: es.tier, order_index: es.order_index }));
+        setSponsorSelections(m);
+        setSponsorPickerOpen(true);
+    };
+
+    const saveSponsorAssignmentsMutation = useMutation({
         mutationFn: async () => {
-            const name = sponsorForm.name.trim();
-            const slug = sponsorPanel === 'new'
-                ? `${slugify(name)}-${Math.random().toString(36).slice(2, 7)}`
-                : undefined;
-            const payload: Record<string, unknown> = {
-                event_id: id!,
-                name,
-                tier: sponsorForm.tier,
-                website: sponsorForm.website.trim() || null,
-                logo: sponsorForm.logo.trim() || null,
-                description: sponsorForm.description.trim() || null,
-                contact_email: sponsorForm.contact_email.trim() || null,
-            };
-            if (slug) payload.slug = slug;
-            if (sponsorPanel === 'new') {
-                const { error } = await supabase.from('sponsors').insert(payload);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('sponsors').update(payload).eq('id', sponsorPanel!);
+            const { error: delError } = await supabase.from('event_sponsors').delete().eq('event_id', id!);
+            if (delError) throw delError;
+            if (sponsorSelections.size > 0) {
+                const rows = Array.from(sponsorSelections.entries()).map(([sponsor_id, { tier, order_index }]) => ({
+                    event_id: id!,
+                    sponsor_id,
+                    tier,
+                    order_index,
+                }));
+                const { error } = await supabase.from('event_sponsors').insert(rows);
                 if (error) throw error;
             }
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['event-sponsors', id] });
-            qc.invalidateQueries({ queryKey: ['sponsors', id] });
-            setSponsorPanel(null);
-            toast.success(sponsorPanel === 'new' ? 'Sponsor added ✓' : 'Sponsor updated ✓');
+            setSponsorPickerOpen(false);
+            toast.success('Sponsors updated ✓');
         },
         onError: (err: any) => toast.error(err.message),
     });
 
-    const deleteSponsorMutation = useMutation({
-        mutationFn: async (sid: string) => {
-            const { error } = await supabase.from('sponsors').delete().eq('id', sid);
+    const quickAddSponsorMutation = useMutation({
+        mutationFn: async () => {
+            const name = sponsorQuickAddForm.name.trim();
+            const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 7)}`;
+            const { data, error } = await supabase
+                .from('sponsors')
+                .insert({ name, slug, tier: sponsorQuickAddForm.tier, website: sponsorQuickAddForm.website.trim() || null, logo: sponsorQuickAddForm.logo.trim() || null })
+                .select('id')
+                .single();
             if (error) throw error;
+            return data.id as string;
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['event-sponsors', id] });
-            qc.invalidateQueries({ queryKey: ['sponsors', id] });
+        onSuccess: (newId) => {
+            const m = new Map(sponsorSelections);
+            m.set(newId, { tier: sponsorQuickAddForm.tier, order_index: m.size });
+            setSponsorSelections(m);
+            qc.invalidateQueries({ queryKey: ['all-sponsors'] });
+            setSponsorQuickAddForm({ name: '', website: '', logo: '', tier: 'gold' });
+            setSponsorQuickAddOpen(false);
+            toast.success('Sponsor created and selected ✓');
         },
         onError: (err: any) => toast.error(err.message),
     });
-
-    const openEditSponsor = (s: SponsorRow) => {
-        setSponsorForm({
-            name: s.name, tier: s.tier, website: s.website ?? '',
-            logo: s.logo ?? '', description: s.description ?? '',
-            contact_email: s.contact_email ?? '',
-        });
-        setSponsorPanel(s.id);
-    };
 
     // ── Agenda ────────────────────────────────────────────────────
     const [agendaEditing, setAgendaEditing] = useState(false);
@@ -1294,89 +1310,165 @@ export default function AdminEventDetailPage() {
                     <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-text)' }}>
                         <Building2 size={18} style={{ color: 'var(--color-gold)' }} />
                         Sponsors
-                        {sponsors.length > 0 && (
-                            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', fontWeight: 400 }}>({sponsors.length})</span>
+                        {eventSponsors.length > 0 && (
+                            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', fontWeight: 400 }}>({eventSponsors.length})</span>
                         )}
                     </h2>
-                    {sponsorPanel !== 'new' && (
-                        <button className="btn btn--primary btn--sm" onClick={() => { setSponsorForm(emptySponsor()); setSponsorPanel('new'); }}>
-                            <Plus size={14} /> Add sponsor
-                        </button>
-                    )}
+                    <button className="btn btn--primary btn--sm" onClick={openSponsorPicker}>
+                        <Plus size={14} /> Manage sponsors
+                    </button>
                 </div>
 
-                {/* Inline form */}
-                {sponsorPanel !== null && (
-                    <div style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-gold)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Company name *</label>
-                                <input className="form-input" style={{ width: '100%' }} value={sponsorForm.name} onChange={e => setSP('name', e.target.value)} autoFocus />
-                            </div>
-                            <div>
-                                <label className="form-label">Tier</label>
-                                <select className="form-input" style={{ width: '100%' }} value={sponsorForm.tier} onChange={e => setSP('tier', e.target.value)}>
-                                    {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="form-label">Website URL</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="https://..." value={sponsorForm.website} onChange={e => setSP('website', e.target.value)} />
-                            </div>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Logo URL</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="https://..." value={sponsorForm.logo} onChange={e => setSP('logo', e.target.value)} />
-                            </div>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Description</label>
-                                <textarea className="form-input" rows={2} style={{ width: '100%', resize: 'vertical' }} value={sponsorForm.description} onChange={e => setSP('description', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label">Contact email</label>
-                                <input className="form-input" style={{ width: '100%' }} type="email" value={sponsorForm.contact_email} onChange={e => setSP('contact_email', e.target.value)} />
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)', justifyContent: 'flex-end' }}>
-                            <button className="btn btn--ghost" onClick={() => setSponsorPanel(null)}><X size={14} /> Cancel</button>
-                            <button
-                                className="btn btn--primary"
-                                onClick={() => saveSponsorMutation.mutate()}
-                                disabled={saveSponsorMutation.isPending || !sponsorForm.name.trim()}
-                            >
-                                <Save size={14} /> {saveSponsorMutation.isPending ? 'Saving…' : 'Save sponsor'}
-                            </button>
-                        </div>
+                {/* Empty state */}
+                {eventSponsors.length === 0 && (
+                    <div className="card" style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--color-text-muted)' }}>
+                        <Building2 size={32} style={{ color: 'var(--color-text-faint)', marginBottom: 'var(--space-3)' }} />
+                        <p>No sponsors yet. Click "Manage sponsors" to add from the pool or create new ones.</p>
                     </div>
                 )}
 
-                {/* Sponsors list */}
-                {sponsors.length === 0 && sponsorPanel === null && (
-                    <div className="card" style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--color-text-muted)' }}>
-                        <Building2 size={32} style={{ color: 'var(--color-text-faint)', marginBottom: 'var(--space-3)' }} />
-                        <p>No sponsors yet. Add the first one.</p>
-                    </div>
-                )}
-                {sponsors.length > 0 && (
+                {/* Assigned sponsors list */}
+                {eventSponsors.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        {sponsors.map(s => (
-                            <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '50px 1fr auto', gap: 'var(--space-4)', alignItems: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-5)' }}>
-                                {s.logo
-                                    ? <img src={s.logo} alt={s.name} style={{ width: 50, height: 30, objectFit: 'contain' }} />
-                                    : <div style={{ width: 50, height: 30, background: 'var(--color-surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--color-text-faint)' }}>logo</div>
+                        {eventSponsors.map(es => (
+                            <div key={es.id} style={{ display: 'grid', gridTemplateColumns: '28px 60px 1fr auto', gap: 'var(--space-4)', alignItems: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-5)' }}>
+                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', fontWeight: 600, textAlign: 'center' }}>#{es.order_index + 1}</span>
+                                {es.sponsor.logo
+                                    ? <img src={es.sponsor.logo} alt={es.sponsor.name} style={{ width: 60, height: 30, objectFit: 'contain' }} />
+                                    : <div style={{ width: 60, height: 30, background: 'var(--color-surface-2)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--color-text-faint)' }}>logo</div>
                                 }
                                 <div>
-                                    <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>{s.name}</p>
-                                    <span className="badge badge--default" style={{ textTransform: 'capitalize', fontSize: 11 }}>{s.tier}</span>
+                                    <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>{es.sponsor.name}</p>
+                                    <span className="badge badge--default" style={{ textTransform: 'capitalize', fontSize: 11 }}>{es.tier}</span>
                                 </div>
-                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                                    <button className="btn btn--ghost btn--sm" onClick={() => openEditSponsor(s)}><Edit2 size={14} /></button>
-                                    <button className="btn btn--ghost btn--sm" style={{ color: 'var(--color-error)' }} onClick={() => { if (confirm(`Delete ${s.name}?`)) deleteSponsorMutation.mutate(s.id); }}><Trash2 size={14} /></button>
-                                </div>
+                                <button className="btn btn--ghost btn--sm" style={{ color: 'var(--color-text-muted)' }} onClick={openSponsorPicker} title="Edit assignments">
+                                    <Edit2 size={14} />
+                                </button>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* ── Sponsor Picker Modal ── */}
+            {sponsorPickerOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-4)' }}>
+                    <div className="card" style={{ width: '100%', maxWidth: 640, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+                        {/* Modal header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-5) var(--space-6)', borderBottom: '1px solid var(--color-border)' }}>
+                            <h3 style={{ fontWeight: 700, fontSize: 'var(--text-lg)', margin: 0 }}>Manage Sponsors</h3>
+                            <button className="btn btn--ghost btn--sm" onClick={() => { setSponsorPickerOpen(false); setSponsorQuickAddOpen(false); }}><X size={16} /></button>
+                        </div>
+
+                        {/* Scrollable body */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-5) var(--space-6)' }}>
+                            {/* Sponsor list */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+                                {allSponsors.length === 0 && (
+                                    <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--space-6) 0' }}>No sponsors in the pool yet. Create one below.</p>
+                                )}
+                                {allSponsors.map(s => {
+                                    const sel = sponsorSelections.get(s.id);
+                                    const isSelected = !!sel;
+                                    return (
+                                        <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '20px 50px 1fr auto auto', gap: 'var(--space-3)', alignItems: 'center', padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-md)', border: `1px solid ${isSelected ? 'var(--color-gold)' : 'var(--color-border)'}`, background: isSelected ? 'rgba(var(--color-gold-rgb), 0.06)' : 'var(--color-surface)', cursor: 'pointer' }}
+                                            onClick={() => {
+                                                const m = new Map(sponsorSelections);
+                                                if (isSelected) { m.delete(s.id); } else { m.set(s.id, { tier: 'gold', order_index: m.size }); }
+                                                setSponsorSelections(m);
+                                            }}>
+                                            <input type="checkbox" checked={isSelected} readOnly style={{ width: 16, height: 16, accentColor: 'var(--color-gold)' }} />
+                                            {s.logo
+                                                ? <img src={s.logo} alt={s.name} style={{ width: 50, height: 28, objectFit: 'contain' }} />
+                                                : <div style={{ width: 50, height: 28, background: 'var(--color-surface-2)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--color-text-faint)' }}>logo</div>
+                                            }
+                                            <span style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}>{s.name}</span>
+                                            {/* Tier select */}
+                                            {isSelected && (
+                                                <select
+                                                    className="form-input"
+                                                    value={sel.tier}
+                                                    style={{ fontSize: 'var(--text-xs)', padding: '2px 6px', width: 100 }}
+                                                    onClick={e => e.stopPropagation()}
+                                                    onChange={e => {
+                                                        e.stopPropagation();
+                                                        const m = new Map(sponsorSelections);
+                                                        m.set(s.id, { ...sel, tier: e.target.value });
+                                                        setSponsorSelections(m);
+                                                    }}
+                                                >
+                                                    {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                                                </select>
+                                            )}
+                                            {/* Order input */}
+                                            {isSelected && (
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={sel.order_index}
+                                                    style={{ width: 52, fontSize: 'var(--text-xs)', padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, background: 'var(--color-surface)', color: 'var(--color-text)', textAlign: 'center' }}
+                                                    onClick={e => e.stopPropagation()}
+                                                    onChange={e => {
+                                                        e.stopPropagation();
+                                                        const m = new Map(sponsorSelections);
+                                                        m.set(s.id, { ...sel, order_index: Number(e.target.value) });
+                                                        setSponsorSelections(m);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Quick-add new sponsor */}
+                            {!sponsorQuickAddOpen ? (
+                                <button className="btn btn--ghost btn--sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setSponsorQuickAddOpen(true)}>
+                                    <Plus size={14} /> Create new sponsor
+                                </button>
+                            ) : (
+                                <div style={{ border: '1px solid var(--color-gold)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', background: 'var(--color-surface-2)' }}>
+                                    <p style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>New sponsor</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <label className="form-label">Company name *</label>
+                                            <input className="form-input" style={{ width: '100%' }} autoFocus value={sponsorQuickAddForm.name} onChange={e => setSQA('name', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="form-label">Tier</label>
+                                            <select className="form-input" style={{ width: '100%' }} value={sponsorQuickAddForm.tier} onChange={e => setSQA('tier', e.target.value)}>
+                                                {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="form-label">Website</label>
+                                            <input className="form-input" style={{ width: '100%' }} placeholder="https://..." value={sponsorQuickAddForm.website} onChange={e => setSQA('website', e.target.value)} />
+                                        </div>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <label className="form-label">Logo URL</label>
+                                            <input className="form-input" style={{ width: '100%' }} placeholder="https://..." value={sponsorQuickAddForm.logo} onChange={e => setSQA('logo', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', justifyContent: 'flex-end' }}>
+                                        <button className="btn btn--ghost btn--sm" onClick={() => setSponsorQuickAddOpen(false)}>Cancel</button>
+                                        <button className="btn btn--primary btn--sm" disabled={!sponsorQuickAddForm.name.trim() || quickAddSponsorMutation.isPending} onClick={() => quickAddSponsorMutation.mutate()}>
+                                            <Plus size={13} /> {quickAddSponsorMutation.isPending ? 'Creating…' : 'Create & select'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal footer */}
+                        <div style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-4) var(--space-6)', borderTop: '1px solid var(--color-border)', justifyContent: 'flex-end' }}>
+                            <button className="btn btn--ghost" onClick={() => { setSponsorPickerOpen(false); setSponsorQuickAddOpen(false); }}>Cancel</button>
+                            <button className="btn btn--primary" disabled={saveSponsorAssignmentsMutation.isPending} onClick={() => saveSponsorAssignmentsMutation.mutate()}>
+                                <Save size={14} /> {saveSponsorAssignmentsMutation.isPending ? 'Saving…' : 'Save sponsors'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ══════════════════════════════════════════════════════
                 AGENDA SECTION
