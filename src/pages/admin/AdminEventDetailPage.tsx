@@ -96,20 +96,13 @@ interface SpeakerRow {
     order_index: number;
 }
 
-interface SpeakerForm {
-    name: string;
-    role: string;
-    company: string;
-    bio: string;
-    photo: string;
-    twitter: string;
-    linkedin: string;
-    order_index: string;
+interface EventSpeakerRow {
+    id: string;
+    event_id: string;
+    speaker_id: string;
+    order_index: number;
+    speaker: SpeakerRow;
 }
-
-const emptySpeaker = (): SpeakerForm => ({
-    name: '', role: '', company: '', bio: '', photo: '', twitter: '', linkedin: '', order_index: '0',
-});
 
 interface SponsorRow {
     id: string;
@@ -607,78 +600,60 @@ export default function AdminEventDetailPage() {
         sales_open: tt.sales_open,
     });
 
-    // ── Speakers ─────────────────────────────────────────────────
-    const [speakerPanel, setSpeakerPanel] = useState<null | 'new' | string>(null);
-    const [speakerForm, setSpeakerForm] = useState<SpeakerForm>(emptySpeaker());
-    const setS = (k: keyof SpeakerForm, v: string) => setSpeakerForm(f => ({ ...f, [k]: v }));
+    // ── Speakers (via event_speakers join table) ──────────────────
+    const [speakerPickerOpen, setSpeakerPickerOpen] = useState(false);
+    const [pickerSelections, setPickerSelections] = useState<Map<string, number>>(new Map());
 
-    const { data: speakers = [] } = useQuery({
+    const { data: eventSpeakers = [] } = useQuery({
         queryKey: ['event-speakers', id],
         enabled: !!id,
         queryFn: async () => {
-            const { data } = await supabase.from('speakers').select('*').eq('event_id', id!).order('order_index');
+            const { data } = await supabase
+                .from('event_speakers')
+                .select('*, speaker:speakers(*)')
+                .eq('event_id', id!)
+                .order('order_index');
+            return (data ?? []) as EventSpeakerRow[];
+        },
+    });
+
+    const { data: allSpeakers = [] } = useQuery({
+        queryKey: ['all-speakers'],
+        enabled: !!id,
+        queryFn: async () => {
+            const { data } = await supabase.from('speakers').select('*').order('name');
             return (data ?? []) as SpeakerRow[];
         },
     });
 
-    const saveSpeakerMutation = useMutation({
+    const openPicker = () => {
+        const m = new Map<string, number>();
+        eventSpeakers.forEach(es => m.set(es.speaker_id, es.order_index));
+        setPickerSelections(m);
+        setSpeakerPickerOpen(true);
+    };
+
+    const saveAssignmentsMutation = useMutation({
         mutationFn: async () => {
-            const name = speakerForm.name.trim();
-            // Generate a unique slug: slugify name + random suffix to avoid collisions
-            const baseSlug = slugify(name);
-            const slug = speakerPanel === 'new'
-                ? `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`
-                : undefined; // don't overwrite slug on update
-            const payload: Record<string, unknown> = {
-                event_id: id!,
-                name,
-                role: speakerForm.role.trim() || null,
-                company: speakerForm.company.trim() || null,
-                bio: speakerForm.bio.trim() || null,
-                photo: speakerForm.photo.trim() || null,
-                twitter: speakerForm.twitter.trim() || null,
-                linkedin: speakerForm.linkedin.trim() || null,
-                order_index: Number(speakerForm.order_index) || 0,
-            };
-            if (slug) payload.slug = slug;
-            if (speakerPanel === 'new') {
-                const { error } = await supabase.from('speakers').insert(payload);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('speakers').update(payload).eq('id', speakerPanel!);
+            const { error: delError } = await supabase.from('event_speakers').delete().eq('event_id', id!);
+            if (delError) throw delError;
+            if (pickerSelections.size > 0) {
+                const rows = Array.from(pickerSelections.entries()).map(([speaker_id, order_index]) => ({
+                    event_id: id!,
+                    speaker_id,
+                    order_index,
+                }));
+                const { error } = await supabase.from('event_speakers').insert(rows);
                 if (error) throw error;
             }
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['event-speakers', id] });
-            qc.invalidateQueries({ queryKey: ['speakers', id] });
-            setSpeakerPanel(null);
-            toast.success(speakerPanel === 'new' ? 'Speaker added ✓' : 'Speaker updated ✓');
+            setSpeakerPickerOpen(false);
+            toast.success('Speakers updated ✓');
         },
         onError: (err: any) => toast.error(err.message),
     });
-
-    const deleteSpeakerMutation = useMutation({
-        mutationFn: async (sid: string) => {
-            const { error } = await supabase.from('speakers').delete().eq('id', sid);
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['event-speakers', id] });
-            qc.invalidateQueries({ queryKey: ['speakers', id] });
-        },
-        onError: (err: any) => toast.error(err.message),
-    });
-
-    const openEditSpeaker = (s: SpeakerRow) => {
-        setSpeakerForm({
-            name: s.name, role: s.role ?? '', company: s.company ?? '',
-            bio: s.bio ?? '', photo: s.photo ?? '',
-            twitter: s.twitter ?? '', linkedin: s.linkedin ?? '',
-            order_index: String(s.order_index),
-        });
-        setSpeakerPanel(s.id);
-    };
 
     // ── Sponsors ──────────────────────────────────────────────────
     const [sponsorPanel, setSponsorPanel] = useState<null | 'new' | string>(null);
@@ -1114,94 +1089,129 @@ export default function AdminEventDetailPage() {
                     <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--color-text)' }}>
                         <Mic size={18} style={{ color: 'var(--color-gold)' }} />
                         Speakers
-                        {speakers.length > 0 && (
-                            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', fontWeight: 400 }}>({speakers.length})</span>
+                        {eventSpeakers.length > 0 && (
+                            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', fontWeight: 400 }}>({eventSpeakers.length})</span>
                         )}
                     </h2>
-                    {speakerPanel !== 'new' && (
-                        <button className="btn btn--primary btn--sm" onClick={() => { setSpeakerForm(emptySpeaker()); setSpeakerPanel('new'); }}>
-                            <Plus size={14} /> Add speaker
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <Link to="/admin/speakers" className="btn btn--ghost btn--sm">
+                            <Plus size={13} /> New speaker
+                        </Link>
+                        <button className="btn btn--primary btn--sm" onClick={openPicker}>
+                            <Pencil size={13} /> Manage
                         </button>
-                    )}
+                    </div>
                 </div>
 
-                {/* Inline form (new or edit) */}
-                {speakerPanel !== null && (
+                {/* Speaker picker */}
+                {speakerPickerOpen && (
                     <div style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-gold)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Name *</label>
-                                <input className="form-input" style={{ width: '100%' }} value={speakerForm.name} onChange={e => setS('name', e.target.value)} autoFocus />
+                        <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)', color: 'var(--color-text)' }}>Select speakers for this event</p>
+                        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+                            Check to assign · set order (lower = first) ·{' '}
+                            <Link to="/admin/speakers" style={{ color: 'var(--color-gold)' }}>manage global speakers →</Link>
+                        </p>
+                        {allSpeakers.length === 0 ? (
+                            <p className="text-muted" style={{ marginBottom: 'var(--space-4)' }}>
+                                No speakers in the pool yet.{' '}
+                                <Link to="/admin/speakers" style={{ color: 'var(--color-gold)' }}>Add speakers first.</Link>
+                            </p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', maxHeight: 380, overflowY: 'auto', marginBottom: 'var(--space-4)' }}>
+                                {allSpeakers.map(sp => {
+                                    const isSelected = pickerSelections.has(sp.id);
+                                    const order = pickerSelections.get(sp.id) ?? 0;
+                                    return (
+                                        <div key={sp.id} style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '20px 36px 1fr auto',
+                                            gap: 'var(--space-3)',
+                                            alignItems: 'center',
+                                            background: isSelected ? 'var(--color-surface)' : 'var(--color-surface)',
+                                            border: `1px solid ${isSelected ? 'var(--color-gold)' : 'var(--color-border)'}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: 'var(--space-3) var(--space-4)',
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={e => {
+                                                    const m = new Map(pickerSelections);
+                                                    if (e.target.checked) m.set(sp.id, m.size);
+                                                    else m.delete(sp.id);
+                                                    setPickerSelections(m);
+                                                }}
+                                                style={{ width: 16, height: 16, accentColor: 'var(--color-gold)', cursor: 'pointer' }}
+                                            />
+                                            {sp.photo
+                                                ? <img src={sp.photo} alt={sp.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                                : <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--color-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gold)' }}>{sp.name[0]}</div>
+                                            }
+                                            <div>
+                                                <p style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--color-text)', marginBottom: 1 }}>{sp.name}</p>
+                                                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{[sp.role, sp.company].filter(Boolean).join(' · ')}</p>
+                                            </div>
+                                            {isSelected ? (
+                                                <input
+                                                    type="number"
+                                                    value={order}
+                                                    min={0}
+                                                    title="Display order (0 = first)"
+                                                    onChange={e => {
+                                                        const m = new Map(pickerSelections);
+                                                        m.set(sp.id, Number(e.target.value));
+                                                        setPickerSelections(m);
+                                                    }}
+                                                    style={{ width: 52, padding: '4px 8px', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', textAlign: 'center' }}
+                                                />
+                                            ) : <span />}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <div>
-                                <label className="form-label">Role / Job title</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="e.g. Algo Trader" value={speakerForm.role} onChange={e => setS('role', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label">Company</label>
-                                <input className="form-input" style={{ width: '100%' }} value={speakerForm.company} onChange={e => setS('company', e.target.value)} />
-                            </div>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Bio</label>
-                                <textarea className="form-input" rows={3} style={{ width: '100%', resize: 'vertical' }} value={speakerForm.bio} onChange={e => setS('bio', e.target.value)} />
-                            </div>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label className="form-label">Photo URL</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="https://..." value={speakerForm.photo} onChange={e => setS('photo', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label">Twitter / X handle</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="@handle" value={speakerForm.twitter} onChange={e => setS('twitter', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label">LinkedIn URL</label>
-                                <input className="form-input" style={{ width: '100%' }} placeholder="https://linkedin.com/in/..." value={speakerForm.linkedin} onChange={e => setS('linkedin', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="form-label">Order</label>
-                                <input className="form-input" type="number" style={{ width: '100%' }} value={speakerForm.order_index} onChange={e => setS('order_index', e.target.value)} />
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)', justifyContent: 'flex-end' }}>
-                            <button className="btn btn--ghost" onClick={() => setSpeakerPanel(null)}>
+                        )}
+                        <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+                            <button className="btn btn--ghost" onClick={() => setSpeakerPickerOpen(false)}>
                                 <X size={14} /> Cancel
                             </button>
                             <button
                                 className="btn btn--primary"
-                                onClick={() => saveSpeakerMutation.mutate()}
-                                disabled={saveSpeakerMutation.isPending || !speakerForm.name.trim()}
+                                onClick={() => saveAssignmentsMutation.mutate()}
+                                disabled={saveAssignmentsMutation.isPending}
                             >
-                                <Save size={14} /> {saveSpeakerMutation.isPending ? 'Saving…' : 'Save speaker'}
+                                <Save size={14} />
+                                {saveAssignmentsMutation.isPending ? 'Saving…' : `Save (${pickerSelections.size} selected)`}
                             </button>
                         </div>
                     </div>
                 )}
 
-                {/* Speakers list */}
-                {speakers.length === 0 && speakerPanel === null && (
+                {/* Assigned speakers list */}
+                {eventSpeakers.length === 0 && !speakerPickerOpen && (
                     <div className="card" style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--color-text-muted)' }}>
                         <Mic size={32} style={{ color: 'var(--color-text-faint)', marginBottom: 'var(--space-3)' }} />
-                        <p>No speakers yet. Add the first one.</p>
+                        <p style={{ marginBottom: 'var(--space-3)' }}>No speakers assigned to this event yet.</p>
+                        <button className="btn btn--primary btn--sm" onClick={openPicker}>Manage speakers</button>
                     </div>
                 )}
-                {speakers.length > 0 && (
+                {eventSpeakers.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        {speakers.map(s => (
-                            <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto', gap: 'var(--space-4)', alignItems: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-5)' }}>
-                                {s.photo
-                                    ? <img src={s.photo} alt={s.name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-                                    : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gold)', fontSize: 'var(--text-lg)' }}>{s.name[0]}</div>
+                        {eventSpeakers.map(es => (
+                            <div key={es.id} style={{ display: 'grid', gridTemplateColumns: '28px 40px 1fr auto', gap: 'var(--space-4)', alignItems: 'center', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-5)' }}>
+                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', fontWeight: 600, textAlign: 'center' }}>#{es.order_index + 1}</span>
+                                {es.speaker.photo
+                                    ? <img src={es.speaker.photo} alt={es.speaker.name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                                    : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--color-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gold)', fontSize: 'var(--text-lg)' }}>{es.speaker.name[0]}</div>
                                 }
                                 <div>
-                                    <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>{s.name}</p>
+                                    <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>{es.speaker.name}</p>
                                     <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                                        {[s.role, s.company].filter(Boolean).join(' · ')}
+                                        {[es.speaker.role, es.speaker.company].filter(Boolean).join(' · ')}
                                     </p>
                                 </div>
-                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                                    <button className="btn btn--ghost btn--sm" onClick={() => openEditSpeaker(s)}><Edit2 size={14} /></button>
-                                    <button className="btn btn--ghost btn--sm" style={{ color: 'var(--color-error)' }} onClick={() => { if (confirm(`Delete ${s.name}?`)) deleteSpeakerMutation.mutate(s.id); }}><Trash2 size={14} /></button>
-                                </div>
+                                <button className="btn btn--ghost btn--sm" style={{ color: 'var(--color-text-muted)' }} onClick={openPicker} title="Edit assignments">
+                                    <Edit2 size={14} />
+                                </button>
                             </div>
                         ))}
                     </div>

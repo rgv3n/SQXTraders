@@ -40,17 +40,17 @@ export default function EventDetailPage() {
         enabled: !!slug,
     });
 
-    // Fetch speakers for event
+    // Fetch speakers for event (via event_speakers join table)
     const { data: speakers = [] } = useQuery<Speaker[]>({
         queryKey: ['speakers', event?.id],
         enabled: !!event?.id,
         queryFn: async () => {
             const { data } = await supabase
-                .from('speakers')
-                .select('*')
+                .from('event_speakers')
+                .select('*, speaker:speakers(*)')
                 .eq('event_id', event!.id)
                 .order('order_index', { ascending: true });
-            return (data ?? []) as Speaker[];
+            return ((data ?? []) as any[]).map((r: any) => r.speaker as Speaker);
         },
     });
 
