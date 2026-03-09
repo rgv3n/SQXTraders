@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { sendWelcomeEmail } from '../lib/mailer';
 
 // ─── Supabase admin client (service role — bypasses RLS) ─────
 const adminSupabase = createClient(
@@ -129,6 +130,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Only rollback new accounts
             if (createdNew) await adminSupabase.auth.admin.deleteUser(targetUserId);
             return res.status(500).json({ error: `Profile creation failed: ${profileError.message}` });
+        }
+
+        // Send welcome email (non-critical)
+        try {
+            await sendWelcomeEmail({
+                to: email.trim().toLowerCase(),
+                displayName: display_name,
+                role: role as 'admin' | 'moderator',
+                temporaryPassword: password,
+            });
+        } catch (emailErr) {
+            console.error('[create-user] Welcome email failed:', emailErr);
         }
 
         return res.status(201).json({

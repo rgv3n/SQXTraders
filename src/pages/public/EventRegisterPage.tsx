@@ -241,6 +241,18 @@ export default function EventRegisterPage() {
                 });
             }
 
+            // Send confirmation email (non-blocking, best-effort)
+            supabase.auth.getSession().then(({ data }) => {
+                const token = data.session?.access_token;
+                if (token) {
+                    fetch('/api/send-confirmation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ attendee_id: attendee.id }),
+                    }).catch(() => {/* non-critical */});
+                }
+            });
+
             return attendee;
         },
         onSuccess: (attendee) => {

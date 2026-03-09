@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { sendTicketConfirmation } from './lib/mailer';
 
 // Disable Vercel's automatic body parsing — Stripe needs the raw body
 export const config = {
@@ -15,7 +16,7 @@ const supabase = createClient(
 
 // ─── Stripe client ────────────────────────────────────────────
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2025-01-27.acacia',
+    apiVersion: '2025-02-24.acacia' as any,
 });
 
 // ─── Read raw body for signature verification ─────────────────
@@ -136,7 +137,33 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         // Don't return — still try to handle voucher
     }
 
-    // 3. Handle voucher redemption
+    // 3. Send ticket confirmation email
+    if (attendee && attendee_email) {
+        try {
+            // Fetch event + ticket type for email details
+            const [{ data: eventData }, { data: ticketData }] = await Promise.all([
+                supabase.from('events').select('title, start_date, venue_name').eq('id', event_id!).single(),
+                supabase.from('ticket_types').select('name').eq('id', ticket_type_id!).single(),
+            ]);
+            await sendTicketConfirmation({
+                to: attendee_email,
+                attendeeName: attendee_name ?? attendee_email,
+                eventTitle: eventData?.title ?? 'Event',
+                eventDate: eventData?.start_date
+                    ? new Date(eventData.start_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                    : undefined,
+                eventVenue: eventData?.venue_name ?? undefined,
+                ticketType: ticketData?.name ?? 'Ticket',
+                isFree: false,
+                qrCodeValue: attendee.qr_code_value,
+            });
+        } catch (emailErr) {
+            console.error('Failed to send confirmation email:', emailErr);
+            // Don't fail the webhook — email is non-critical
+        }
+    }
+
+    // 4. Handle voucher redemption
     if (voucher_id && Number(discount_applied) > 0) {
         // Increment uses_count
         await supabase.rpc('increment_voucher_uses', { voucher_uuid: voucher_id });
