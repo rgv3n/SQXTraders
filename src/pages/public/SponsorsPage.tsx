@@ -26,7 +26,7 @@ export default function SponsorsPage() {
         <div>
             <SEO
                 title="Sponsors & Partners"
-                description="Meet the companies and brands sponsoring SQX EventOS trading events and conferences."
+                description="Meet the companies and brands sponsoring SQX Traders trading events and conferences."
                 url="/sponsors"
             />
             <div style={{ background: 'var(--color-bg-soft)', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-16) 0 var(--space-12)' }}>

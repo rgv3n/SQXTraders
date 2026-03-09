@@ -42,7 +42,7 @@ export default function EventsPage() {
         <div className="events-page">
             <SEO
                 title="Trading Events"
-                description="Browse all upcoming and past trading events, conferences and summits organised by SQX EventOS."
+                description="Browse all upcoming and past trading events, conferences and summits organised by SQX Traders."
                 url="/events"
             />
             {/* Page Header */}

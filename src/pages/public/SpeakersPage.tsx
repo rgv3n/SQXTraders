@@ -25,7 +25,7 @@ export default function SpeakersPage() {
         <div>
             <SEO
                 title="Speakers"
-                description="Meet the world-class speakers and expert traders presenting at SQX EventOS events."
+                description="Meet the world-class speakers and expert traders presenting at SQX Traders events."
                 url="/speakers"
             />
             <div className="speakers-page-header">

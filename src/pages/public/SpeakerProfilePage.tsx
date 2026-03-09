@@ -123,7 +123,7 @@ export default function SpeakerProfilePage() {
             </div>
 
             {/* Body */}
-            <div className="container section" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--space-10)', alignItems: 'start' }}>
+            <div className="container section speaker-profile-body">
                 {/* Bio */}
                 <div>
                     <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--color-text)', marginBottom: 'var(--space-4)' }}>About</h2>
@@ -156,10 +156,11 @@ export default function SpeakerProfilePage() {
                 )}
             </div>
 
-            {/* Responsive: stack on mobile */}
             <style>{`
+                .speaker-profile-body { display: grid; grid-template-columns: 1fr 320px; gap: var(--space-10); align-items: start; }
                 @media (max-width: 768px) {
-                    .speaker-profile-grid { grid-template-columns: 1fr !important; }
+                    .speaker-profile-body { grid-template-columns: 1fr; }
+                    .speaker-hero-inner { flex-direction: column; }
                 }
             `}</style>
         </div>

@@ -79,7 +79,7 @@ export default function HomePage() {
                     '@type': 'EventSeries',
                     name: 'SQX Traders Summit',
                     description: 'The premier conference series for algorithmic traders.',
-                    organizer: { '@type': 'Organization', name: 'SQX EventOS' },
+                    organizer: { '@type': 'Organization', name: 'SQX Traders' },
                 }}
             />
             {/* ======================================================
@@ -207,7 +207,7 @@ export default function HomePage() {
                             <Calendar size={12} />
                             {t('home.upcoming.label', 'Upcoming')}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'var(--space-8)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'var(--space-8)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
                             <h2 className="section-title" style={{ marginBottom: 0 }}>
                                 {t('home.upcoming.title', 'Next Events')}
                             </h2>

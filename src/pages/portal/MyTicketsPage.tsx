@@ -82,6 +82,13 @@ export default function MyTicketsPage() {
 
     return (
         <div className="container section">
+            <style>{`
+                .ticket-card { display: grid; grid-template-columns: auto 1fr; gap: var(--space-8); align-items: start; padding: var(--space-8); }
+                @media (max-width: 600px) {
+                    .ticket-card { grid-template-columns: 1fr; }
+                    .ticket-card > div:first-child { display: flex; flex-direction: column; align-items: center; }
+                }
+            `}</style>
             <div style={{ marginBottom: 'var(--space-8)' }}>
                 <h1 className="section-title" style={{ marginBottom: 'var(--space-2)' }}>
                     <Ticket size={28} style={{ display: 'inline', marginRight: 'var(--space-3)', color: 'var(--color-gold)' }} />
@@ -107,17 +114,7 @@ export default function MyTicketsPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                 {tickets.map(ticket => (
-                    <div
-                        key={ticket.id}
-                        className="card"
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'auto 1fr',
-                            gap: 'var(--space-8)',
-                            alignItems: 'center',
-                            padding: 'var(--space-8)',
-                        }}
-                    >
+                    <div key={ticket.id} className="card ticket-card">
                         {/* QR Code */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)' }}>
                             <div style={{

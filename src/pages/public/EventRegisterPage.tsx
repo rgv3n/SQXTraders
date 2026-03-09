@@ -339,8 +339,16 @@ export default function EventRegisterPage() {
                 )}
             </div>
 
+            <style>{`
+                .register-layout { display: grid; grid-template-columns: 1fr 340px; gap: var(--space-6); align-items: start; }
+                .register-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+                @media (max-width: 768px) {
+                    .register-layout { grid-template-columns: 1fr; }
+                    .register-form-grid { grid-template-columns: 1fr; }
+                }
+            `}</style>
             <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--space-6)', alignItems: 'start' }}>
+                <div className="register-layout">
                     {/* ── Left column ── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 
@@ -406,7 +414,7 @@ export default function EventRegisterPage() {
                                 <User size={16} style={{ color: 'var(--color-gold)' }} />
                                 {t('register.your_details', 'Your Details')}
                             </h2>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                            <div className="register-form-grid">
                                 <div style={{ gridColumn: '1 / -1' }}>
                                     <label className="form-label">
                                         <User size={12} style={{ display: 'inline', marginRight: 4 }} />

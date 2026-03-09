@@ -124,7 +124,7 @@ export default function EventDetailPage() {
             : undefined,
         organizer: {
             '@type': 'Organization',
-            name: 'SQX EventOS',
+            name: 'SQX Traders',
             url: BASE_URL,
         },
         image: event.og_image ?? undefined,
@@ -137,7 +137,7 @@ export default function EventDetailPage() {
         <div className="event-detail">
             <SEO
                 title={event.title ?? undefined}
-                description={event.description ?? `Join ${event.title} — a premier trading event by SQX EventOS.`}
+                description={event.description ?? `Join ${event.title} — a premier trading event by SQX Traders.`}
                 image={event.og_image ?? undefined}
                 url={`/events/${eventSlug}`}
                 type="article"

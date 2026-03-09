@@ -4,7 +4,7 @@
  * No external library needed.
  */
 
-const APP_NAME = 'SQX EventOS';
+const APP_NAME = 'SQX Traders';
 const BASE_URL = import.meta.env.VITE_APP_URL ?? 'https://sqxtraders.vercel.app';
 const DEFAULT_IMAGE = `${BASE_URL}/og-default.png`;
 const TWITTER_HANDLE = '@SQXTraders';
@@ -30,7 +30,7 @@ export default function SEO({
     jsonLd,
 }: SEOProps) {
     const fullTitle = title ? `${title} — ${APP_NAME}` : `${APP_NAME} — The Premier Trading Events Platform`;
-    const desc = description ?? 'Discover and register for exclusive trading events, conferences and networking meetups. SQX EventOS connects the global trading community.';
+    const desc = description ?? 'Discover and register for exclusive trading events, conferences and networking meetups. SQX Traders connects the global trading community.';
     const canonical = url ? (url.startsWith('http') ? url : `${BASE_URL}${url}`) : undefined;
 
     const schemas = jsonLd

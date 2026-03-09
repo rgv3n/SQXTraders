@@ -10,26 +10,28 @@
    CSS Custom Properties (Design Tokens)
    ============================================================ */
 :root {
-  /* Colors */
-  --color-bg:          #08090d;
-  --color-bg-soft:     #0d0f17;
-  --color-surface:     #111420;
-  --color-surface-2:   #181c2e;
-  --color-surface-3:   #1f2440;
-  --color-border:      rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.14);
+  /* Colors — SQX Traders brand: pure black + circuit blue + trading gold */
+  --color-bg:          #000000;
+  --color-bg-soft:     #07070f;
+  --color-surface:     #0d0d14;
+  --color-surface-2:   #111119;
+  --color-surface-3:   #171724;
+  --color-border:      rgba(255, 255, 255, 0.07);
+  --color-border-hover: rgba(255, 255, 255, 0.16);
 
-  /* Brand Accent — Gold */
-  --color-gold:        #f0a500;
-  --color-gold-light:  #f4bc3e;
-  --color-gold-dim:    rgba(240, 165, 0, 0.12);
-  --color-gold-glow:   rgba(240, 165, 0, 0.25);
+  /* Brand Accent — White/Silver */
+  --color-gold:        #e8e8e8;
+  --color-gold-light:  #ffffff;
+  --color-gold-dim:    rgba(255, 255, 255, 0.08);
+  --color-gold-glow:   rgba(255, 255, 255, 0.18);
+  --color-gold-rgb:    232, 232, 232;
 
-  /* Brand Accent — Electric Blue */
-  --color-blue:        #00d4ff;
-  --color-blue-light:  #29dcff;
-  --color-blue-dim:    rgba(0, 212, 255, 0.10);
-  --color-blue-glow:   rgba(0, 212, 255, 0.20);
+  /* Brand Accent — Circuit Blue (matches the image traces) */
+  --color-blue:        #00b8ff;
+  --color-blue-light:  #33caff;
+  --color-blue-dim:    rgba(0, 184, 255, 0.10);
+  --color-blue-glow:   rgba(0, 184, 255, 0.22);
+  --color-blue-rgb:    0, 184, 255;
 
   /* Semantic */
   --color-success:     #22c55e;
@@ -38,9 +40,9 @@
   --color-info:        #3b82f6;
 
   /* Text */
-  --color-text:        #e8eaf0;
-  --color-text-muted:  #787e9e;
-  --color-text-faint:  #4a5070;
+  --color-text:        #eceef5;
+  --color-text-muted:  #72788f;
+  --color-text-faint:  #40455a;
 
   /* Typography */
   --font-body:         'Inter', system-ui, sans-serif;
@@ -84,7 +86,7 @@
   --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
   --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
   --shadow-lg:   0 8px 32px rgba(0,0,0,0.6);
-  --shadow-gold: 0 0 30px rgba(240,165,0,0.2), 0 0 60px rgba(240,165,0,0.08);
+  --shadow-gold: 0 0 30px rgba(255,255,255,0.10), 0 0 60px rgba(255,255,255,0.04);
   --shadow-blue: 0 0 30px rgba(0,212,255,0.15), 0 0 60px rgba(0,212,255,0.06);
 
   /* Transitions */
@@ -215,14 +217,14 @@ input, textarea, select {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--color-gold) 0%, #e09400 100%);
+  background: linear-gradient(135deg, #e8e8e8 0%, #ffffff 100%);
   color: #0a0b0f;
-  box-shadow: var(--shadow-gold);
+  box-shadow: 0 0 30px rgba(255,255,255,0.10), 0 0 60px rgba(255,255,255,0.04);
 }
 
 .btn--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 40px rgba(240,165,0,0.35), 0 0 80px rgba(240,165,0,0.12);
+  box-shadow: 0 0 40px rgba(255,255,255,0.18), 0 0 80px rgba(255,255,255,0.06);
 }
 
 .btn--primary:active {
